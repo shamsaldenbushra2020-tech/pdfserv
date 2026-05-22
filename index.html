@@ -2,14 +2,13 @@
 <html lang="ar" dir="rtl">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>عارض ملفات PDF ذكي للجوال</title>
+    <!-- تفعيل التكبير بالسماح للمستخدم بالزوم (user-scalable=yes) وضبط الحد الأقصى للتكبير -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=5.0, user-scalable=yes">
+    <title>عارض ملفات PDF ذكي مع إمكانية التكبير</title>
     
-    <!-- استخدام إصدار مستقر ومتوافق جداً -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
     
     <style>
-        /* إعدادات تصفير الأبعاد الافتراضية للمتصفح */
         * {
             margin: 0;
             padding: 0;
@@ -18,25 +17,23 @@
         }
         
         body {
-            background-color: #1e222b; /* لون داكن مريح للعين في التصفح */
+            background-color: #1e222b;
             font-family: system-ui, -apple-system, sans-serif;
-            overflow-x: hidden; /* منع التمرير العرضي المزعج */
+            overflow-x: hidden;
             width: 100vw;
             min-height: 100vh;
         }
 
-        /* حاوية العرض الرئيسية للملف */
         .pdf-viewer-wrapper {
             width: 100%;
-            max-width: 800px; /* أقصى عرض متاح على الكمبيوتر لحفظ التنسيق */
+            max-width: 800px;
             margin: 0 auto;
             padding: 10px;
             display: flex;
             flex-direction: column;
-            gap: 12px; /* مسافة مريحة بين الصفحات */
+            gap: 12px;
         }
 
-        /* حاوية كل صفحة فردية لضمان الأبعاد السليمة والظل الجمالي */
         .page-container {
             width: 100%;
             background: #ffffff;
@@ -48,57 +45,52 @@
             align-items: center;
         }
 
-        /* جعل عنصر الرسم (Canvas) مرن 100% ليتناسب مع عرض الجوال تلقائياً */
         canvas {
             width: 100% !important;
             height: auto !important;
             display: block;
-            /* منع المتصفح من محاولة تحديد النص أو إظهار قوائم منبثقة عند الضغط المطول */
+            /* السماح بأحداث اللمس لكي يستجيب المتصفح لإصبعين عند التكبير */
+            pointer-events: auto; 
+            /* منع تحديد النصوص الداخلية فقط للحماية */
             user-select: none;
             -webkit-user-select: none;
-            pointer-events: none; 
         }
     </style>
 </head>
 <body>
 
-    <!-- الحاوية الذكية التي ستحتوي على الصفحات القابلة للاسكرول -->
     <div class="pdf-viewer-wrapper" id="pdfViewer"></div>
 
     <script>
-        // اسم ملف الـ PDF الخاص بك في مجلد htdocs
         const pdfUrl = '001.pdf'; 
 
-        // ربط الـ Worker
         pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
 
-        // بدء معالجة الملف
-        const loadingTask = pdfjsLib.getDocument(pdfUrl);
+        const loadingTask = pdfjsLib.getDocument({
+            url: pdfUrl,
+            cMapUrl: 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/cmaps/',
+            cMapPacked: true
+        });
+
         loadingTask.promise.then(pdf => {
             const wrapper = document.getElementById('pdfViewer');
             
-            // دالة رسم الصفحات بالترتيب
             let renderPage = (pageNum) => {
                 if (pageNum > pdf.numPages) return;
 
                 pdf.getPage(pageNum).then(page => {
-                    // نستخدم دقة عالية (scale = 2) لمنع التغبش على شاشات الجوال القوية (Retina/OLED)
                     const scale = 2; 
                     const viewport = page.getViewport({ scale: scale });
 
-                    // إنشاء حاوية مستقلة للصفحة لضبط التصميم والـ Shadow
                     const pageContainer = document.createElement('div');
                     pageContainer.className = 'page-container';
 
-                    // إنشاء الـ Canvas
                     const canvas = document.createElement('canvas');
                     const context = canvas.getContext('2d');
                     
-                    // الأبعاد الداخلية للرسم بدقة عالية
                     canvas.height = viewport.height;
                     canvas.width = viewport.width;
 
-                    // دمج العناصر
                     pageContainer.appendChild(canvas);
                     wrapper.appendChild(pageContainer);
 
@@ -107,14 +99,12 @@
                         viewport: viewport
                     };
                     
-                    // ريندر الصفحة الحالية ثم الانتقال للتالية فوراً
                     page.render(renderContext).promise.then(() => {
                         renderPage(pageNum + 1);
                     });
                 });
             };
 
-            // تشغيل الدالة بدءاً من الصفحة الأولى
             renderPage(1);
 
         }).catch(error => {
