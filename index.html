@@ -2,198 +2,88 @@
 <html lang="ar" dir="rtl">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>مكتبة القراءة السلسة</title>
-    <!-- استدعاء المكتبة لعرض الصفحات كصور متجهة -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>عارض ملفات PDF مخصص</title>
+    <!-- استدعاء مكتبة PDF.js من خادم CDN -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
     <style>
         * {
-            box-sizing: border-box;
-            -webkit-tap-highlight-color: transparent;
-        }
-        body {
             margin: 0;
             padding: 0;
-            background-color: #1a1a1a; /* خلفية داكنة مريحة للعين */
+            box-sizing: border-box;
+        }
+        body {
+            background-color: #2f3542;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        /* حاوية العارض لمنع أي تحكم خارجي */
+        .pdf-container {
+            background: #ffffff;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+            border-radius: 8px;
             overflow: hidden;
-            font-family: system-ui, -apple-system, sans-serif;
-            height: 100vh;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-        }
-
-        /* حاوية العرض الرئيسية */
-        #book-viewer {
-            position: relative;
-            width: 100%;
-            height: 100vh;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            padding: 10px;
-        }
-
-        /* لوحة الرسم التي يظهر عليها الكتاب */
-        canvas {
             max-width: 100%;
-            max-height: 100%;
-            object-fit: contain;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
-            background: white;
-            transition: opacity 0.2s ease-in-out;
+            position: relative;
+        }
+        /* منع المستخدم من الضغط المطول أو التحديد لحماية المحتوى إن لزم الأمر */
+        canvas {
+            display: block;
+            max-width: 100%;
+            height: auto;
             user-select: none;
+            -webkit-user-select: none;
         }
-
-        /* مناطق النقر الشفافة على الجوانب لتقليب الصفحات */
-        .nav-zone {
-            position: absolute;
-            top: 0;
-            height: 100%;
-            width: 25%;
-            z-index: 10;
-            cursor: pointer;
-        }
-        #next-zone { left: 0; }  /* النقر يساراً للتقدم في الكتب العربية */
-        #prev-zone { right: 0; } /* النقر يميناً للعودة للخلف */
-
-        /* العداد السفلي الأنيق لصفحات الكتاب */
-        #page-badge {
-            position: absolute;
-            bottom: 20px;
-            background: rgba(0, 0, 0, 0.7);
-            color: #e0e0e0;
-            padding: 6px 14px;
-            border-radius: 20px;
-            font-size: 14px;
-            z-index: 20;
-            pointer-events: none;
-            letter-spacing: 1px;
-        }
-
-        /* تأثير ناعم للتلاشي عند التقليب */
-        .fade-out { opacity: 0; }
     </style>
 </head>
 <body>
 
-    <div id="book-viewer">
-        <!-- مناطق اللمس والنقر المخفية -->
-        <div id="prev-zone" class="nav-zone" title="الصفحة السابقة"></div>
-        <div id="next-zone" class="nav-zone" title="الصفحة التالية"></div>
-
-        <!-- ساحة عرض الكتاب الخالية من أي أدوات تحكم مزعجة -->
-        <canvas id="page-canvas"></canvas>
-
-        <!-- رقم الصفحة الذكي -->
-        <div id="page-badge"><span id="current-page">0</span> / <span id="total-pages">0</span></div>
+    <div class="pdf-container" id="pdfViewer">
+        <!-- سيتم توليد صفحات الـ PDF هنا تلقائياً كعناصر Canvas -->
     </div>
 
     <script>
-        // هنا نضع اسم الملف الموجود معكِ في نفس المجلد على GitHub تماماً
-        // قومي بتغيير "my_book.pdf" إلى الاسم الحقيقي لملفكِ مع مراعاة الحروف الكبيرة والصغيرة
-        const pdfFileName = '001.pdf'; 
+        // تحديد رابط ملف الـ PDF (يمكن أن يكون ملفاً محلياً بجانب الكود أو رابطاً مباشراً)
+        const pdfUrl = '001.pdf'; 
 
-        let pdfDoc = null,
-            pageNum = 1,
-            isRendering = false,
-            canvas = document.getElementById('page-canvas'),
-            ctx = canvas.getContext('2d');
-
+        // إعداد المكتبة
         pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.worker.min.js';
 
-        // دالة العرض والتجاوب التلقائي مع الشاشات
-        function renderBookPage(num) {
-            if (isRendering) return;
-            isRendering = true;
+        // تحميل وقراءة الملف
+        pdfjsLib.getDocument(pdfUrl).promise.then(pdf => {
+            const container = document.getElementById('pdfViewer');
+            
+            // حلقة لتكرار العملية على كل صفحات الملف وعرضها متتالية
+            for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+                pdf.getPage(pageNum).then(page => {
+                    const scale = 1.5; // التحكم في جودة ووضوح العرض
+                    const viewport = page.getViewport({ scale: scale });
 
-            canvas.classList.add('fade-out');
+                    // إنشاء عنصر canvas لكل صفحة
+                    const canvas = document.createElement('canvas');
+                    const context = canvas.getContext('2d');
+                    canvas.height = viewport.height;
+                    canvas.width = viewport.width;
 
-            setTimeout(() => {
-                pdfDoc.getPage(num).then((page) => {
-                    // قياس أبعاد شاشة المستخدم الحالية (سواء هاتف أو حاسوب)
-                    const viewerWidth = window.innerWidth - 20;
-                    const viewerHeight = window.innerHeight - 20;
-                    
-                    const unscaledViewport = page.getViewport({ scale: 1 });
-                    
-                    // حساب أفضل حجم للملاءمة التلقائية (Responsive Scale)
-                    const widthScale = viewerWidth / unscaledViewport.width;
-                    const heightScale = viewerHeight / unscaledViewport.height;
-                    const idealScale = Math.min(widthScale, heightScale);
+                    // إضافة الـ canvas إلى الحاوية الرئيسية
+                    container.appendChild(canvas);
 
-                    const viewport = page.getViewport({ scale: idealScale });
-                    
-                    // منع الضبابية في الشاشات عالية الدقة (Retina Screens)
-                    const pixelRatio = window.devicePixelRatio || 1;
-                    canvas.height = viewport.height * pixelRatio;
-                    canvas.width = viewport.width * pixelRatio;
-                    
-                    ctx.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
-
+                    // ريندر (رسم) الصفحة داخل الـ canvas
                     const renderContext = {
-                        canvasContext: ctx,
+                        canvasContext: context,
                         viewport: viewport
                     };
-
-                    page.render(renderContext).promise.then(() => {
-                        isRendering = false;
-                        canvas.classList.remove('fade-out');
-                        document.getElementById('current-page').textContent = num;
-                    });
+                    page.render(renderContext);
                 });
-            }, 150);
-        }
-
-        function nextPage() {
-            if (pageNum >= pdfDoc.numPages) return;
-            pageNum++;
-            renderBookPage(pageNum);
-        }
-
-        function prevPage() {
-            if (pageNum <= 1) return;
-            pageNum--;
-            renderBookPage(pageNum);
-        }
-
-        // تفعيل مناطق النقر المخفية
-        document.getElementById('next-zone').addEventListener('click', nextPage);
-        document.getElementById('prev-zone').addEventListener('click', prevPage);
-
-        // تفعيل الأسهم في لوحة المفاتيح
-        document.addEventListener('keydown', (e) => {
-            if (e.key === 'ArrowLeft') nextPage();
-            if (e.key === 'ArrowRight') prevPage();
-        });
-
-        // تفعيل السحب باللمس على الهواتف (Swipe)
-        let touchStartX = 0;
-        let touchEndX = 0;
-
-        document.addEventListener('touchstart', e => {
-            touchStartX = e.changedTouches[0].screenX;
-        }, false);
-
-        document.addEventListener('touchend', e => {
-            touchEndX = e.changedTouches[0].screenX;
-            if (touchStartX - touchEndX > 50) nextPage();
-            if (touchEndX - touchStartX > 50) prevPage();
-        }, false);
-
-        // إعادة ضبط الحجم فوراً عند تدوير الشاشة أو تغيير أبعاد المتصفح
-        window.addEventListener('resize', () => {
-            if (pdfDoc) renderBookPage(pageNum);
-        });
-
-        // قراءة وتشغيل الملف المحلي فور فتح الصفحة
-        pdfjsLib.getDocument(pdfFileName).promise.then((pdfDoc_) => {
-            pdfDoc = pdfDoc_;
-            document.getElementById('total-pages').textContent = pdfDoc.numPages;
-            renderBookPage(pageNum);
-        }).catch(err => {
-            console.error('تأكدي من مطابقة اسم الملف تماماً مع الملف المرفوع في GitHub:', err);
+            }
+        }).catch(error => {
+            console.error('حدث خطأ أثناء تحميل ملف الـ PDF:', error);
         });
     </script>
+
 </body>
 </html>
