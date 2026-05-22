@@ -2,86 +2,123 @@
 <html lang="ar" dir="rtl">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>عارض ملفات PDF مخصص</title>
-    <!-- استدعاء مكتبة PDF.js من خادم CDN -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>عارض ملفات PDF ذكي للجوال</title>
+    
+    <!-- استخدام إصدار مستقر ومتوافق جداً -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
+    
     <style>
+        /* إعدادات تصفير الأبعاد الافتراضية للمتصفح */
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
         }
+        
         body {
-            background-color: #2f3542;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #1e222b; /* لون داكن مريح للعين في التصفح */
+            font-family: system-ui, -apple-system, sans-serif;
+            overflow-x: hidden; /* منع التمرير العرضي المزعج */
+            width: 100vw;
+            min-height: 100vh;
+        }
+
+        /* حاوية العرض الرئيسية للملف */
+        .pdf-viewer-wrapper {
+            width: 100%;
+            max-width: 800px; /* أقصى عرض متاح على الكمبيوتر لحفظ التنسيق */
+            margin: 0 auto;
+            padding: 10px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px; /* مسافة مريحة بين الصفحات */
+        }
+
+        /* حاوية كل صفحة فردية لضمان الأبعاد السليمة والظل الجمالي */
+        .page-container {
+            width: 100%;
+            background: #ffffff;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+            border-radius: 6px;
+            overflow: hidden;
             display: flex;
             justify-content: center;
             align-items: center;
-            min-height: 100vh;
-            padding: 20px;
         }
-        /* حاوية العارض لمنع أي تحكم خارجي */
-        .pdf-container {
-            background: #ffffff;
-            box-shadow: 0 10px 25px rgba(0,0,0,0.3);
-            border-radius: 8px;
-            overflow: hidden;
-            max-width: 100%;
-            position: relative;
-        }
-        /* منع المستخدم من الضغط المطول أو التحديد لحماية المحتوى إن لزم الأمر */
+
+        /* جعل عنصر الرسم (Canvas) مرن 100% ليتناسب مع عرض الجوال تلقائياً */
         canvas {
+            width: 100% !important;
+            height: auto !important;
             display: block;
-            max-width: 100%;
-            height: auto;
+            /* منع المتصفح من محاولة تحديد النص أو إظهار قوائم منبثقة عند الضغط المطول */
             user-select: none;
             -webkit-user-select: none;
+            pointer-events: none; 
         }
     </style>
 </head>
 <body>
 
-    <div class="pdf-container" id="pdfViewer">
-        <!-- سيتم توليد صفحات الـ PDF هنا تلقائياً كعناصر Canvas -->
-    </div>
+    <!-- الحاوية الذكية التي ستحتوي على الصفحات القابلة للاسكرول -->
+    <div class="pdf-viewer-wrapper" id="pdfViewer"></div>
 
     <script>
-        // تحديد رابط ملف الـ PDF (يمكن أن يكون ملفاً محلياً بجانب الكود أو رابطاً مباشراً)
+        // اسم ملف الـ PDF الخاص بك في مجلد htdocs
         const pdfUrl = '001.pdf'; 
 
-        // إعداد المكتبة
-        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.worker.min.js';
+        // ربط الـ Worker
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
 
-        // تحميل وقراءة الملف
-        pdfjsLib.getDocument(pdfUrl).promise.then(pdf => {
-            const container = document.getElementById('pdfViewer');
+        // بدء معالجة الملف
+        const loadingTask = pdfjsLib.getDocument(pdfUrl);
+        loadingTask.promise.then(pdf => {
+            const wrapper = document.getElementById('pdfViewer');
             
-            // حلقة لتكرار العملية على كل صفحات الملف وعرضها متتالية
-            for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+            // دالة رسم الصفحات بالترتيب
+            let renderPage = (pageNum) => {
+                if (pageNum > pdf.numPages) return;
+
                 pdf.getPage(pageNum).then(page => {
-                    const scale = 1.5; // التحكم في جودة ووضوح العرض
+                    // نستخدم دقة عالية (scale = 2) لمنع التغبش على شاشات الجوال القوية (Retina/OLED)
+                    const scale = 2; 
                     const viewport = page.getViewport({ scale: scale });
 
-                    // إنشاء عنصر canvas لكل صفحة
+                    // إنشاء حاوية مستقلة للصفحة لضبط التصميم والـ Shadow
+                    const pageContainer = document.createElement('div');
+                    pageContainer.className = 'page-container';
+
+                    // إنشاء الـ Canvas
                     const canvas = document.createElement('canvas');
                     const context = canvas.getContext('2d');
+                    
+                    // الأبعاد الداخلية للرسم بدقة عالية
                     canvas.height = viewport.height;
                     canvas.width = viewport.width;
 
-                    // إضافة الـ canvas إلى الحاوية الرئيسية
-                    container.appendChild(canvas);
+                    // دمج العناصر
+                    pageContainer.appendChild(canvas);
+                    wrapper.appendChild(pageContainer);
 
-                    // ريندر (رسم) الصفحة داخل الـ canvas
                     const renderContext = {
                         canvasContext: context,
                         viewport: viewport
                     };
-                    page.render(renderContext);
+                    
+                    // ريندر الصفحة الحالية ثم الانتقال للتالية فوراً
+                    page.render(renderContext).promise.then(() => {
+                        renderPage(pageNum + 1);
+                    });
                 });
-            }
+            };
+
+            // تشغيل الدالة بدءاً من الصفحة الأولى
+            renderPage(1);
+
         }).catch(error => {
-            console.error('حدث خطأ أثناء تحميل ملف الـ PDF:', error);
+            console.error('خطأ في تحميل الـ PDF:', error);
         });
     </script>
 
