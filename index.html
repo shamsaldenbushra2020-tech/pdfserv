@@ -104,7 +104,12 @@
                     });
                 });
             };
-
+            // استخدام رابط CDN مباشر ومفتوح لخرائط الحروف (cMaps) لتجنب الحظر
+const loadingTask = pdfjsLib.getDocument({
+    url: pdfUrl,
+    cMapUrl: 'https://unpkg.com/pdfjs-dist@2.16.105/cmaps/', // رابط مباشر ومفتوح
+    cMapPacked: true // جلبها مضغوطة لتسريع الأداء
+});
             renderPage(1);
 
         }).catch(error => {
