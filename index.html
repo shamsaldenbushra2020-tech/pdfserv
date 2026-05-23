@@ -62,59 +62,55 @@
     <div class="pdf-viewer-wrapper" id="pdfViewer"></div>
 
     <script>
-        const pdfUrl = '001.pdf'; 
+      const pdfUrl = '001.pdf'; 
 
-        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
+pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
 
-        const loadingTask = pdfjsLib.getDocument({
-            url: pdfUrl,
-            cMapUrl: 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/cmaps/',
-            cMapPacked: true
-        });
-
-        loadingTask.promise.then(pdf => {
-            const wrapper = document.getElementById('pdfViewer');
-            
-            let renderPage = (pageNum) => {
-                if (pageNum > pdf.numPages) return;
-
-                pdf.getPage(pageNum).then(page => {
-                    const scale = 2; 
-                    const viewport = page.getViewport({ scale: scale });
-
-                    const pageContainer = document.createElement('div');
-                    pageContainer.className = 'page-container';
-
-                    const canvas = document.createElement('canvas');
-                    const context = canvas.getContext('2d');
-                    
-                    canvas.height = viewport.height;
-                    canvas.width = viewport.width;
-
-                    pageContainer.appendChild(canvas);
-                    wrapper.appendChild(pageContainer);
-
-                    const renderContext = {
-                        canvasContext: context,
-                        viewport: viewport
-                    };
-                    
-                    page.render(renderContext).promise.then(() => {
-                        renderPage(pageNum + 1);
-                    });
-                });
-            };
-            // استخدام رابط CDN مباشر ومفتوح لخرائط الحروف (cMaps) لتجنب الحظر
+// استدعاء الخطوط العربية مباشرة من خوادم جيت هاب (عبر cdnjs / rawgit)
 const loadingTask = pdfjsLib.getDocument({
     url: pdfUrl,
-    cMapUrl: 'https://unpkg.com/pdfjs-dist@2.16.105/cmaps/', // رابط مباشر ومفتوح
-    cMapPacked: true // جلبها مضغوطة لتسريع الأداء
+    cMapUrl: 'https://cdn.jsdelivr.net/gh/mozilla/pdf.js@v2.16.105/external/cmaps/', // رابط جيت هاب الرسمي للخطوط
+    cMapPacked: true
 });
-            renderPage(1);
 
-        }).catch(error => {
-            console.error('خطأ في تحميل الـ PDF:', error);
+loadingTask.promise.then(pdf => {
+    const wrapper = document.getElementById('pdfViewer');
+    
+    let renderPage = (pageNum) => {
+        if (pageNum > pdf.numPages) return;
+
+        pdf.getPage(pageNum).then(page => {
+            const scale = 2; 
+            const viewport = page.getViewport({ scale: scale });
+
+            const pageContainer = document.createElement('div');
+            pageContainer.className = 'page-container';
+
+            const canvas = document.createElement('canvas');
+            const context = canvas.getContext('2d');
+            
+            canvas.height = viewport.height;
+            canvas.width = viewport.width;
+
+            pageContainer.appendChild(canvas);
+            wrapper.appendChild(pageContainer);
+
+            const renderContext = {
+                canvasContext: context,
+                viewport: viewport
+            };
+            
+            page.render(renderContext).promise.then(() => {
+                renderPage(pageNum + 1);
+            });
         });
+    };
+
+    renderPage(1);
+
+}).catch(error => {
+    console.error('خطأ في تحميل الـ PDF:', error);
+});
     </script>
 
 </body>
